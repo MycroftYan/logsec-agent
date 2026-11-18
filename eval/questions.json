@@ -1,0 +1,20 @@
+[
+  {
+    "id": "q1",
+    "case_id": "case_010",
+    "question": "请分析案件 case_010，判断它最可能属于哪一种 ATT&CK 战术，并给出证据 uid。",
+    "gold": "从 labels 表读取（评测脚本 load_labels()），不要写在这里"
+  },
+  {
+    "id": "q2",
+    "case_id": "case_004",
+    "question": "请分析案件 case_004，判断它最可能属于哪一种 ATT&CK 战术，并给出证据 uid。",
+    "gold": "从 labels 表读取（评测脚本 load_labels()），不要写在这里"
+  },
+  {
+    "id": "q3",
+    "case_id": "case_000",
+    "question": "case_000 里有没有 SSH 暴力破解的迹象？失败登录最多的来源 IP 是哪个？请给出证据 uid。",
+    "gold": "有暴力破解；失败登录（Failed password）最多的 IP 是 183.62.140.253（286 条）。SSH 日志没有战术标签，此题由同学 B 人工整理参考答案、人工判分。"
+  }
+]
