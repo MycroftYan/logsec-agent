@@ -25,8 +25,7 @@
 ```powershell
 cd logsec-agent
 python run.py setup          # 只需一次：建 .venv + 装依赖
-copy .env.example .env       # 然后把 key 填进 .env
-python run.py chat           # 多轮对话
+python run.py chat           # 多轮对话。第一次运行会问你要 key，输入一次就存进 .env
 python run.py ask "case_010 里发生了什么可疑行为？请给出证据"   # 单次提问
 python run.py test           # 跑不花钱的测试
 ```
@@ -34,8 +33,18 @@ python run.py test           # 跑不花钱的测试
 `run.py` 会自动找到 `.venv` 里的 Python 再运行脚本，所以**不会出现"用错 Python 报 No module named 'agentscope'"**；
 数据库没建时它也会自动先建库。子命令只有 5 个：`chat` / `ask` / `setup` / `db` / `test`。
 
-> 为什么需要它：直接 `python ask.py` 用的是系统 Python（本机是 3.14），依赖装在 `.venv` 里，会报
-> `ModuleNotFoundError: No module named 'agentscope'`。
+**API key 怎么给**（三选一，优先级从高到低，`run.py` 会自己判断）：
+
+```powershell
+python run.py chat --api-key sk-xxx     # ① 跟着命令传（临时用）
+$env:DEEPSEEK_API_KEY="sk-xxx"          # ② 环境变量（本次终端有效）
+copy .env.example .env                  # ③ 写进 .env（推荐，长期有效）
+# 都不做的话，第一次运行 run.py 会问你要一次，然后自动写进 .env
+```
+
+> `.env` 在 `.gitignore` 里，不会被提交，也不会随压缩包发出去。
+> 为什么需要 `run.py`：直接 `python ask.py` 用的是系统 Python（本机是 3.14），依赖装在 `.venv` 里，
+> 会报 `ModuleNotFoundError: No module named 'agentscope'`。
 
 ### 手动方式（想看清楚每一步的话）
 
@@ -98,15 +107,17 @@ LogSec> 刚才 2 条登录成功事件分别来自：Administrator ← 172.16.66
 
 | 方式 | 怎么写 | 适合什么时候 |
 |---|---|---|
-| 命令行参数 | `python ask.py "问题" --api-key sk-xxx` | 临时换 key、给别人演示 |
+| 命令行参数 | `python run.py chat --api-key sk-xxx`<br>（等价 `python ask.py "问题" --api-key sk-xxx`） | 临时换 key、给别人演示 |
 | 环境变量 | `$env:DEEPSEEK_API_KEY="sk-xxx"`（PowerShell） | 一台机器上多个项目共用 key |
 | `.env` 文件 | 复制 `.env.example` 成 `.env`，填 `DEEPSEEK_API_KEY=sk-xxx` | **日常推荐**，不用每次敲 |
+
+三种都没配时，`python run.py chat` 会**现场问你要一次**，然后自动写进 `.env`（输入时不回显）。
 
 同时还能临时覆盖模型和循环上限：
 
 ```bash
-python ask.py "case_010 里发生了什么可疑行为？" --model deepseek-v4-pro   # 换更强（更贵）的模型
-python chat.py --max-iters 15                                            # 允许多循环几轮
+python run.py ask "case_010 里发生了什么可疑行为？" --model deepseek-v4-pro   # 换更强（更贵）的模型
+python run.py chat --max-iters 15                                            # 允许多循环几轮
 ```
 
 `.env` 已在 `.gitignore` 里，不会被提交；代码里也没有任何硬编码的 key。
@@ -242,8 +253,8 @@ logsec-agent/
 你（或别人）把 `config.py` 里某个开关改成了 `True`，但对应功能还没写。把开关改回 `False`，或者去提示里的文件把功能写完。
 
 **Q：提示"找不到数据库"或"没有找到 DEEPSEEK_API_KEY"？**
-数据库：`python run.py db`（`run.py` 的其他子命令也会自动建）。key：看上面[三种给 key 的方式](#三种给-api-key-的方式优先级从高到低)；
-key 只能放在 `.env` 里，**不要写进代码、截图或发到群里**。
+数据库：`python run.py db`（`run.py` 的其他子命令也会自动建）。key：`python run.py chat` 第一次运行会问你要一次并写进 `.env`；
+也可以手动按上面[三种给 key 的方式](#三种给-api-key-的方式优先级从高到低)配置。key 只能放在 `.env` 里，**不要写进代码、截图或发到群里**。
 
 **Q：Windows 上中文乱码或 `UnicodeEncodeError`？**
 程序已经把输出设成 UTF-8。如果还有问题，先运行 `$env:PYTHONUTF8=1`（PowerShell）或 `set PYTHONUTF8=1`（cmd）再启动；也可以换用 Windows Terminal。

@@ -51,3 +51,19 @@ LogSec> 这两条登录分别来自以下 IP：
 | 问一句就退出了，好像不能多轮 | 用的是 `ask.py`（设计上就是单次提问、用来演示每一步） | 用 `python run.py chat` 或 `python chat.py` |
 | 报 `ModuleNotFoundError: No module named 'agentscope'` | 直接 `python ask.py`，用的是系统 Python（3.14），依赖装在 `.venv` 里 | 用 `python run.py chat`，它自动找 `.venv` 里的 Python |
 | 重开程序后不记得上次的结论 | 会话状态不持久化，属预期行为 | 第 5 周的记忆组件（现在开关是 `False`） |
+
+## API key 从哪来
+
+`python run.py chat` 自己不做模型调用，key 由它启动的 `chat.py` 读取，优先级：
+`--api-key` 参数 > 环境变量 `DEEPSEEK_API_KEY` > 项目里的 `.env` 文件。
+
+三种都没配时，`run.py` 会在启动前**问一次**并把 key 写进 `.env`（写进去之后就不再问了）：
+
+```text
+还没有 DeepSeek API key。三种给法任选一种：
+  1) 现在粘贴一次，会存进本机 .env（推荐，之后不用再输）
+  2) 跟着命令传：python run.py chat --api-key sk-xxx
+  3) 设环境变量：$env:DEEPSEEK_API_KEY="sk-xxx"
+  请粘贴 DEEPSEEK_API_KEY（输入时不显示）：
+  已保存到 …\logsec-agent\.env
+```
