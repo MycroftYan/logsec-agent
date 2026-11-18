@@ -15,13 +15,19 @@ import sys
 from agentscope.console import launch_console
 
 import config
-from logsec.agent import build_agent
+from logsec.agent import build_agent, key_source
 from logsec.errors import NotDoneYet, SetupError
 
 
 async def chat(api_key: str | None = None, model_name: str | None = None, max_iters: int | None = None) -> None:
     agent = build_agent(api_key=api_key, model_name=model_name, max_iters=max_iters)
-    print("日志安全分析 agent 已启动。试试问：case_000 里有暴力破解的迹象吗？（输入 exit 退出）")
+    print("=" * 64)
+    print("日志安全分析 agent · 多轮对话")
+    print(f"  模型：{model_name or config.MODEL_NAME}    key 来源：{key_source(api_key)}")
+    print("  本次运行内会记住前面聊过的内容（关掉程序就忘了；跨会话记忆是第 5 周的组件）")
+    print('  示例：case_010 里发生了什么可疑行为？ / case_000 里有没有暴力破解？')
+    print("  输入 exit 或 Ctrl+D 退出；回答过程中按 Ctrl+C 可打断当前回答")
+    print("=" * 64)
     if config.ENABLE_FANCY_UI:  # 第 6 周
         from logsec.ui import launch_fancy_ui
 

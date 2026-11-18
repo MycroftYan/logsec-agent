@@ -20,7 +20,26 @@
 
 需要 Python 3.11 或更高版本。推荐用 [uv](https://docs.astral.sh/uv/) 管理环境（下面两种写法任选其一）。
 
-### macOS / Linux
+### 最省事：一条命令（不用激活虚拟环境）
+
+```powershell
+cd logsec-agent
+python run.py setup          # 只需一次：建 .venv + 装依赖
+copy .env.example .env       # 然后把 key 填进 .env
+python run.py chat           # 多轮对话
+python run.py ask "case_010 里发生了什么可疑行为？请给出证据"   # 单次提问
+python run.py test           # 跑不花钱的测试
+```
+
+`run.py` 会自动找到 `.venv` 里的 Python 再运行脚本，所以**不会出现"用错 Python 报 No module named 'agentscope'"**；
+数据库没建时它也会自动先建库。子命令只有 5 个：`chat` / `ask` / `setup` / `db` / `test`。
+
+> 为什么需要它：直接 `python ask.py` 用的是系统 Python（本机是 3.14），依赖装在 `.venv` 里，会报
+> `ModuleNotFoundError: No module named 'agentscope'`。
+
+### 手动方式（想看清楚每一步的话）
+
+#### macOS / Linux
 
 ```bash
 cd logsec-agent
@@ -34,7 +53,7 @@ python ask.py "case_010 里发生了什么可疑行为？请给出证据"
 python chat.py                       # 多轮对话，输入 exit 退出
 ```
 
-### Windows（PowerShell）
+#### Windows（PowerShell）
 
 ```powershell
 cd logsec-agent
@@ -51,8 +70,29 @@ python chat.py
 > 装 uv：macOS/Linux `curl -LsSf https://astral.sh/uv/install.sh | sh`；
 > Windows `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`。
 
-`ask.py` 会实时打印 agent 的思考、每次工具调用和结果，最后打印"工具调用序列"和 token 用量；
-加 `--quiet` 只看最终回答。
+### 单次提问 vs 多轮对话
+
+| 入口 | 行为 | 用在哪 |
+|---|---|---|
+| `ask.py`（`run.py ask`） | 问一个问题就退出，打印每一步工具调用 | 演示 ReAct、跑评测、看单题 |
+| `chat.py`（`run.py chat`） | 一直聊，**同一次运行内记住前面所有内容**，输入 `exit` 退出 | 日常分析、给老师演示"追问" |
+
+`ask.py` 加 `--quiet` 只看最终回答。
+
+多轮对话实测（两轮，第二轮没有重复查库，直接用第一轮的上下文回答）：
+
+```text
+user> case_010 有几条登录成功的事件？
+LogSec> case_010 共有 2 条登录成功事件，均为 EventID 4624：…… [E02102]、[E02106]
+
+user> 刚才那几条登录分别来自哪个 IP？
+LogSec> 刚才 2 条登录成功事件分别来自：Administrator ← 172.16.66.37 [E02102]；机器账户 01566S-WIN16-IR$ ← ::1 [E02106]
+```
+
+完整记录见 [`docs/demo-chat.md`](docs/demo-chat.md)。
+
+> 注意"多轮对话"和"跨会话记忆"是两件事：多轮对话靠框架的会话状态，**关掉程序就忘**；
+> 跨会话记住结论是第 5 周的记忆组件（`config.ENABLE_MEMORY`，现在故意关着）。
 
 ### 三种给 API key 的方式（优先级从高到低）
 
@@ -83,9 +123,11 @@ python chat.py --max-iters 15                                            # 允�
 | `python -m pytest` | 9 项测试全部通过（5.4 秒，不花钱） |
 | `python ask.py "case_010 里发生了什么可疑行为？请给出证据"` | 自行调用 11 次工具，还原出"清安全日志 → 远程 Administrator 登录 → SAMR/LSARPC 枚举 → 重置机器账户密码"的链条，输入 27,441 / 输出 2,828 token |
 | `python ask.py "case_000 里有没有暴力破解？哪个来源 IP 最活跃？"` | 结论对（183.62.140.253 最活跃、仅 1 条成功登录且与爆破无关），但**撞到 10 轮上限**：28 次工具调用、输入 120,162 token。原因是没有统计工具，只能一页页翻搜索结果 —— 这正是第 3 周要补的 |
+| `python run.py chat` 连问两轮（"case_010 有几条登录成功？" → "**刚才**那几条登录来自哪个 IP？"） | 多轮对话正常：第二轮理解"刚才"指代，只补查了 `get_event` 详情，没有重新搜索；输入 4,719 token |
 
 完整对话记录（含每一步工具调用、以及用 SQL 回查模型给出的数字）见
-[`docs/demo-case010.md`](docs/demo-case010.md) 和 [`docs/demo-case000-ssh.md`](docs/demo-case000-ssh.md)。
+[`docs/demo-case010.md`](docs/demo-case010.md)、[`docs/demo-chat.md`](docs/demo-chat.md) 和
+[`docs/demo-case000-ssh.md`](docs/demo-case000-ssh.md)。
 
 
 ---
@@ -99,14 +141,16 @@ logsec-agent/
 ├── requirements.txt     依赖（agentscope==2.0.12 等）
 ├── .env.example         API key 模板（复制成 .env 再填；.env 不会被提交）
 ├── config.py            路径、模型名、输出上限、各周功能开关（默认全关）
+├── run.py               一条命令启动（自动找 .venv 的 Python，子命令 chat/ask/setup/db/test）
 ├── ask.py               单次提问，打印工具调用过程（演示 ReAct 用）
-├── chat.py              终端多轮对话
+├── chat.py              多轮对话（同一次运行内记住前文）
 ├── docs/                设计文档与实测记录
 │   ├── 02-系统方案设计_v0.4.md   小组的完整方案（8 周排期、分工、评测）
 │   ├── demo-case010.md          一次完整 ReAct 对话的记录与解读
 │   ├── demo-case010.log         上面那次对话的原始终端输出
 │   ├── demo-case000-ssh.md      一次撞上循环上限的提问（含数字回查）
 │   ├── demo-case000-ssh.log     上面那次对话的原始终端输出
+│   ├── demo-chat.md             多轮对话实测（追问时复用上文）
 │   └── 测试数据说明.md          两份数据的来源、规模与局限
 ├── logsec/              agent 本体
 │   ├── agent.py         组装 agent：模型 + 工具 + 提示词 + 组件
@@ -185,11 +229,21 @@ logsec-agent/
 
 ## 常见问题
 
+**Q：问一句程序就退出了，是不是不能多轮对话？**
+能。`ask.py` 是刻意做成"单次提问、打印每一步"的演示工具；多轮对话用 `chat.py`（或 `python run.py chat`），
+同一次运行里会记住前面聊的内容。实测见 [`docs/demo-chat.md`](docs/demo-chat.md)。
+另外注意：**关掉程序就忘**，因为 `launch_console` 不做会话持久化；跨会话记忆是第 5 周的组件。
+
+**Q：报 `ModuleNotFoundError: No module named 'agentscope'`？**
+用了系统的 Python 直接跑脚本，而依赖装在 `.venv` 里。两个办法：先 `.venv\Scripts\Activate.ps1` 激活虚拟环境，
+或者直接用 `python run.py chat`（它会自动找 `.venv` 里的 Python）。
+
 **Q：运行时提示"[第 X 周任务，尚未实现]"？**
 你（或别人）把 `config.py` 里某个开关改成了 `True`，但对应功能还没写。把开关改回 `False`，或者去提示里的文件把功能写完。
 
 **Q：提示"找不到数据库"或"没有找到 DEEPSEEK_API_KEY"？**
-先运行 `python scripts/build_db.py`；把 `.env.example` 复制成 `.env` 并填上 key。key 只能放在 `.env` 里，**不要写进代码、截图或发到群里**。
+数据库：`python run.py db`（`run.py` 的其他子命令也会自动建）。key：看上面[三种给 key 的方式](#三种给-api-key-的方式优先级从高到低)；
+key 只能放在 `.env` 里，**不要写进代码、截图或发到群里**。
 
 **Q：Windows 上中文乱码或 `UnicodeEncodeError`？**
 程序已经把输出设成 UTF-8。如果还有问题，先运行 `$env:PYTHONUTF8=1`（PowerShell）或 `set PYTHONUTF8=1`（cmd）再启动；也可以换用 Windows Terminal。

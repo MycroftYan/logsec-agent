@@ -15,7 +15,7 @@ from agentscope.agent import Agent, ReActConfig
 from agentscope.credential import DeepSeekCredential
 from agentscope.model import DeepSeekChatModel
 from agentscope.tool import Toolkit
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 import config
 from logsec.errors import SetupError
@@ -41,6 +41,23 @@ def load_api_key(cli_key: str | None = None) -> str:
             f"  3) 运行时传参：python ask.py \"问题\" --api-key sk-xxx（最省事，但会留在命令历史里）"
         )
     return key
+
+
+def key_source(cli_key: str | None = None) -> str:
+    """key 是从哪来的（只用于打印提示，不返回 key 本身）。
+
+    注意 load_dotenv() 会把 .env 的内容塞进 os.environ，所以读完 .env 之后
+    光看环境变量分不清来源；这里直接读 .env 文件的值和进程环境变量做对比。
+    """
+    if cli_key and cli_key.strip():
+        return "命令行参数 --api-key"
+    file_key = (dotenv_values(config.ENV_FILE) or {}).get(config.API_KEY_ENV, "").strip()
+    env_key = os.getenv(config.API_KEY_ENV, "").strip()
+    if file_key and env_key == file_key:
+        return f".env 文件（{config.ENV_FILE.name}）"
+    if env_key:
+        return f"环境变量 {config.API_KEY_ENV}"
+    return "没找到（启动时会报错）"
 
 
 def build_model(api_key: str | None = None, model_name: str | None = None) -> DeepSeekChatModel:
