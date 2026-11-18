@@ -1,5 +1,7 @@
 # logsec-agent：日志安全分析对话智能体
 
+[![tests](https://github.com/MycroftYan/logsec-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/MycroftYan/logsec-agent/actions/workflows/tests.yml)
+
 一个能在终端里对话的"日志安全分析员"。你用中文提问（比如"case_000 里有没有暴力破解？"），
 它会自己决定调用哪些日志查询工具、查到证据，再给出**带事件编号（uid）**的结论。
 

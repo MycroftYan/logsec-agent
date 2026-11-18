@@ -1,0 +1,6 @@
+# 统一换行符：代码和文档提交进仓库时用 LF，换到 macOS 上不会出现整文件 diff。
+* text=auto eol=lf
+
+# 原始日志是被测数据，原样保留，不做换行符转换（也便于按原样比对）。
+data/raw/** -text
+docs/*.log -text
