@@ -80,8 +80,10 @@ python chat.py --max-iters 15                                            # 允�
 | `python scripts\build_db.py` | 建库成功：events 6,633 / cases 250 / labels 250 |
 | `python -m pytest` | 9 项测试全部通过（5.4 秒，不花钱） |
 | `python ask.py "case_010 里发生了什么可疑行为？请给出证据"` | 自行调用 11 次工具，还原出"清安全日志 → 远程 Administrator 登录 → SAMR/LSARPC 枚举 → 重置机器账户密码"的链条，输入 27,441 / 输出 2,828 token |
+| `python ask.py "case_000 里有没有暴力破解？哪个来源 IP 最活跃？"` | 结论对（183.62.140.253 最活跃、仅 1 条成功登录且与爆破无关），但**撞到 10 轮上限**：28 次工具调用、输入 120,162 token。原因是没有统计工具，只能一页页翻搜索结果 —— 这正是第 3 周要补的 |
 
-完整对话记录（含每一步工具调用）见 [`docs/demo-case010.md`](docs/demo-case010.md)。
+完整对话记录（含每一步工具调用、以及用 SQL 回查模型给出的数字）见
+[`docs/demo-case010.md`](docs/demo-case010.md) 和 [`docs/demo-case000-ssh.md`](docs/demo-case000-ssh.md)。
 
 
 ---
@@ -101,6 +103,8 @@ logsec-agent/
 │   ├── 02-系统方案设计_v0.4.md   小组的完整方案（8 周排期、分工、评测）
 │   ├── demo-case010.md          一次完整 ReAct 对话的记录与解读
 │   ├── demo-case010.log         上面那次对话的原始终端输出
+│   ├── demo-case000-ssh.md      一次撞上循环上限的提问（含数字回查）
+│   ├── demo-case000-ssh.log     上面那次对话的原始终端输出
 │   └── 测试数据说明.md          两份数据的来源、规模与局限
 ├── logsec/              agent 本体
 │   ├── agent.py         组装 agent：模型 + 工具 + 提示词 + 组件
