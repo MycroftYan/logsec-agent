@@ -5,6 +5,7 @@
     python run.py setup                                  # 建虚拟环境 + 装依赖
     python run.py db                                     # 用原始日志重建数据库
     python run.py test                                   # 跑不花钱的测试
+    python run.py key                                    # 查看 / 更换 API key（--show 只看，--clear 删除）
     python run.py                                        # 不带参数 = chat
 
 为什么需要它：仓库里的依赖装在 `.venv` 里，如果直接 `python ask.py`，
@@ -136,18 +137,55 @@ def save_api_key(key: str) -> None:
     ENV_FILE.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def ensure_api_key(args: list[str]) -> bool:
-    """没有 key 就现场问一次，存进 .env。返回是否拿到了 key。"""
-    if has_api_key(args):
+def remove_api_key() -> None:
+    """从 .env 里删掉 key 那一行（文件里其它内容保留）。"""
+    if not ENV_FILE.exists():
+        return
+    kept = []
+    for line in ENV_FILE.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped.startswith(f"{ENV_KEY}=") or stripped.startswith(f"{ENV_KEY} ="):
+            continue
+        kept.append(line)
+    ENV_FILE.write_text("\n".join(kept).rstrip() + "\n", encoding="utf-8")
+
+
+def mask(key: str) -> str:
+    """把 key 打码成 sk-abc…wxyz，用于打印，不暴露完整 key。"""
+    return key[:7] + "…" + key[-4:] if len(key) > 12 else key[:4] + "…"
+
+
+def current_key() -> tuple[str, str]:
+    """当前生效的 key 和它的来源（不判断 --api-key，因为那是单次参数）。"""
+    env_key = os.environ.get(ENV_KEY, "").strip()
+    file_key = env_file_key()
+    if env_key and env_key != file_key:
+        return env_key, f"环境变量 {ENV_KEY}"
+    if file_key:
+        return file_key, ".env 文件"
+    if env_key:
+        return env_key, f"环境变量 {ENV_KEY}"
+    return "", "未配置"
+
+
+def ensure_api_key(args: list[str], force: bool = False) -> bool:
+    """没有 key 就现场问一次，存进 .env。返回是否拿到了 key。
+
+    force=True 用于 `python run.py key`：不管有没有 key 都问一次，直接回车表示取消。
+    """
+    if not force and has_api_key(args):
         return True
-    if any(a in ("-h", "--help") for a in args):
+    if not force and any(a in ("-h", "--help") for a in args):
         return True  # 只是看帮助，不用 key
 
-    print("还没有 DeepSeek API key。三种给法任选一种：")
-    print("  1) 现在粘贴一次，会存进本机 .env（推荐，之后不用再输）")
-    print("  2) 跟着命令传：python run.py chat --api-key sk-xxx")
-    print("  3) 设环境变量：$env:DEEPSEEK_API_KEY=\"sk-xxx\"")
-    print(f"  key 在 https://platform.deepseek.com/api_keys 生成；.env 不会被提交到 Git。\n", flush=True)
+    if not force:
+        print("还没有 DeepSeek API key。三种给法任选一种：")
+        print("  1) 现在粘贴一次，会存进本机 .env（推荐，之后不用再输）")
+        print("  2) 跟着命令传：python run.py chat --api-key sk-xxx")
+        print("  3) 设环境变量：$env:DEEPSEEK_API_KEY=\"sk-xxx\"")
+        print("  key 在 https://platform.deepseek.com/api_keys 生成；.env 不会被提交到 Git。\n", flush=True)
+    else:
+        print("输入新 key 可替换当前值；直接回车取消。\n", flush=True)
     try:
         if sys.stdin.isatty():
             # 终端里交互：输入时不回显
@@ -159,12 +197,12 @@ def ensure_api_key(args: list[str]) -> bool:
         print("\n  已取消。也可以手动把 .env.example 复制成 .env 再填。")
         return False
     if not key:
-        print("  没有输入内容，已跳过。之后可以手动填 .env。")
+        print("  没有输入内容，已取消。")
         return False
     if not key.startswith("sk-"):
         print(f"  提醒：DeepSeek 的 key 通常以 sk- 开头，你输入的是「{key[:3]}…」（仍然保存）")
     save_api_key(key)
-    print(f"  已保存到 {ENV_FILE}\n", flush=True)
+    print(f"  已保存到 {ENV_FILE}（当前 key：{mask(key)}）\n", flush=True)
     return True
 
 
@@ -184,6 +222,17 @@ def main() -> int:
         return 0
     if command == "setup":
         setup()
+        return 0
+    if command == "key":
+        key, where = current_key()
+        if "--clear" in rest:
+            remove_api_key()
+            print("已从 .env 删除 key。")
+            return 0
+        print(f"当前 key：{mask(key)}（来源：{where}）" if key else "当前没有配置 key。")
+        if "--show" in rest:
+            return 0
+        ensure_api_key([], force=True)  # 问一次新 key，回车取消
         return 0
     if command == "ask" and not rest:
         print('用法：python run.py ask "你的问题"')

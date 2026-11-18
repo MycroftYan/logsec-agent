@@ -31,7 +31,7 @@ python run.py test           # 跑不花钱的测试
 ```
 
 `run.py` 会自动找到 `.venv` 里的 Python 再运行脚本，所以**不会出现"用错 Python 报 No module named 'agentscope'"**；
-数据库没建时它也会自动先建库。子命令只有 5 个：`chat` / `ask` / `setup` / `db` / `test`。
+数据库没建时它也会自动先建库。子命令只有 6 个：`chat` / `ask` / `setup` / `db` / `test` / `key`。
 
 **API key 怎么给**（三选一，优先级从高到低，`run.py` 会自己判断）：
 
@@ -39,6 +39,7 @@ python run.py test           # 跑不花钱的测试
 python run.py chat --api-key sk-xxx     # ① 跟着命令传（临时用）
 $env:DEEPSEEK_API_KEY="sk-xxx"          # ② 环境变量（本次终端有效）
 copy .env.example .env                  # ③ 写进 .env（推荐，长期有效）
+python run.py key                       # 查看/更换 key；--show 只看，--clear 删除
 # 都不做的话，第一次运行 run.py 会问你要一次，然后自动写进 .env
 ```
 
